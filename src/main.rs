@@ -68,8 +68,11 @@ fn extract_row_paragraphs(table_child: &TableChild) -> Vec<String> {
                 .into_iter()
                 .map(|run_child| match run_child {
                     docx_rs::RunChild::Text(text) => text.text,
-                    docx_rs::RunChild::Sym(sym) => sym.char.clone(),
-                    _ => panic!("Invalid text type"),
+                    docx_rs::RunChild::Sym(sym) => format!("[{}]", sym.char),
+                    docx_rs::RunChild::Tab(_) => " ".to_string(),
+                    // docx_rs::RunChild::InstrText(instr) => instr,
+                    docx_rs::RunChild::InstrTextString(s) => s,
+                    _ => "".to_string(),
                 })
                 .collect::<Vec<String>>()
                 .join("")
