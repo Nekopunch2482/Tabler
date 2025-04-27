@@ -1,11 +1,33 @@
-const IN_FILE: &str = "document2_word.docx";
-const OUT_FILE: &str = "output.xlsx";
-
 use docx_rs::{read_docx, TableChild, TableRowChild};
 use rust_xlsxwriter::Workbook;
 
+use std::env;
+use std::io::{self, Read};
+use std::path::Path;
+
 fn main() {
-    extract_table_from_docx(IN_FILE);
+    let mut files: Vec<(std::path::PathBuf, String)> = Vec::new();
+
+    for arg in env::args().skip(1) {
+        let path = Path::new(&arg);
+
+        match path.file_stem() {
+            Some(file_stem) => {
+                files.push((path.to_path_buf(), file_stem.to_str().unwrap().to_string()));
+            }
+            None => {
+                panic!("Could not extract file name from path: {}", path.display());
+            }
+        }
+    }
+
+    files.iter().for_each(|(in_file, out_file)| {
+        println!("Parsing file: {}", in_file.display());
+        extract_table_from_docx(in_file, out_file);
+    });
+
+    println!("Press Enter to exit...");
+    let _ = io::stdin().read(&mut [0u8]).unwrap();
 }
 
 fn extract_row_paragraphs(table_child: &TableChild) -> Vec<String> {
@@ -45,8 +67,8 @@ fn extract_row_paragraphs(table_child: &TableChild) -> Vec<String> {
     return texts;
 }
 
-fn extract_table_from_docx(file_path: &str) -> () {
-    let docx_data = std::fs::read(file_path).expect("Failed to read docx");
+fn extract_table_from_docx(in_file: &Path, out_file: &str) -> () {
+    let docx_data = std::fs::read(in_file).expect("Failed to read docx");
     let docx = read_docx(&docx_data).expect("Failed to parse docx");
 
     let tables: Vec<_> = docx
@@ -87,12 +109,12 @@ fn extract_table_from_docx(file_path: &str) -> () {
         })
         .collect();
 
-    create_excel_table(&table_data).expect("Failed to create Excel table");
+    create_excel_table(&table_data, out_file).expect("Failed to create Excel table");
 }
 use rust_xlsxwriter::FormatAlign;
 use rust_xlsxwriter::{Format, XlsxError};
 
-fn create_excel_table(data: &Vec<Vec<Vec<String>>>) -> Result<(), XlsxError> {
+fn create_excel_table(data: &Vec<Vec<Vec<String>>>, out_file: &str) -> Result<(), XlsxError> {
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
 
@@ -162,7 +184,7 @@ fn create_excel_table(data: &Vec<Vec<Vec<String>>>) -> Result<(), XlsxError> {
 
     worksheet.merge_range(0, 4, 0, 6, "Количество", &format_default)?;
 
-    workbook.save(OUT_FILE)?;
+    workbook.save(format!("{out_file}.xlsx"))?;
     Ok(())
 }
 
