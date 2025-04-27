@@ -1,9 +1,11 @@
 use docx_rs::{read_docx, TableChild, TableRowChild};
 use rust_xlsxwriter::Workbook;
 
+mod sym_map;
 use std::env;
 use std::io::{self, Read};
 use std::path::Path;
+use sym_map::get_symbol_map;
 
 fn main() {
     let mut files: Vec<(std::path::PathBuf, String)> = Vec::new();
@@ -46,6 +48,8 @@ fn main() {
 }
 
 fn extract_row_paragraphs(table_child: &TableChild) -> Vec<String> {
+    let sym_map = get_symbol_map();
+
     let texts = match table_child {
         TableChild::TableRow(row) => row.cells.iter(),
     }
@@ -68,7 +72,9 @@ fn extract_row_paragraphs(table_child: &TableChild) -> Vec<String> {
                 .into_iter()
                 .map(|run_child| match run_child {
                     docx_rs::RunChild::Text(text) => text.text,
-                    docx_rs::RunChild::Sym(sym) => format!("[{}]", sym.char),
+                    docx_rs::RunChild::Sym(sym) => {
+                        sym_map.get(&sym.char.as_str()).unwrap_or(&&"").to_string()
+                    }
                     docx_rs::RunChild::Tab(_) => " ".to_string(),
                     // docx_rs::RunChild::InstrText(instr) => instr,
                     docx_rs::RunChild::InstrTextString(s) => s,
