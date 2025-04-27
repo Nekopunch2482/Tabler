@@ -1,0 +1,9 @@
+[package]
+name = "Tabler"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.98"
+docx-rs = "0.4.17"
+rust_xlsxwriter = "0.86.0"
