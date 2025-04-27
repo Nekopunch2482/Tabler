@@ -11,6 +11,21 @@ fn main() {
     for arg in env::args().skip(1) {
         let path = Path::new(&arg);
 
+        match path.extension() {
+            Some(ext) => {
+                if ext != "docx" && ext != "doc" {
+                    panic!("Invalid file extension: {}", ext.to_str().unwrap());
+                }
+            }
+
+            None => {
+                panic!(
+                    "Could not extract file extension from path: {}",
+                    path.display()
+                );
+            }
+        };
+
         match path.file_stem() {
             Some(file_stem) => {
                 files.push((path.to_path_buf(), file_stem.to_str().unwrap().to_string()));
