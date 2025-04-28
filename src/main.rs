@@ -1,7 +1,10 @@
+use convert::convert_doc;
 use docx_rs::{read_docx, TableChild, TableRowChild};
 use rust_xlsxwriter::Workbook;
 
+mod convert;
 mod sym_map;
+
 use std::env;
 use std::io::{self, Read};
 use std::path::Path;
@@ -37,6 +40,8 @@ fn main() {
             }
         }
     }
+
+    files = convert_doc(files);
 
     files.iter().for_each(|(in_file, out_file)| {
         println!("Parsing file: {}", in_file.display());
