@@ -36,9 +36,11 @@ fn convert_doc_to_docx_windows(input: &str, output: &str) -> windows::core::Resu
     use windows::{
         core::*,
         Win32::System::Com::{
-            CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+            CoCreateInstance, CoInitializeEx, CoUninitialize, IDispatch, CLSCTX_ALL,
+            COINIT_APARTMENTTHREADED,
         },
         Win32::System::Ole::CLSIDFromProgID,
+        Win32::System::Variant::VARIANT,
     };
 
     unsafe {
