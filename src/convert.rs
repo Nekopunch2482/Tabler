@@ -1,3 +1,5 @@
+use std::{fs::File, io::Write, process::Command};
+
 pub fn convert_doc(files: Vec<(std::path::PathBuf, String)>) -> Vec<(std::path::PathBuf, String)> {
     files
         .into_iter()
@@ -18,10 +20,9 @@ pub fn convert_doc(files: Vec<(std::path::PathBuf, String)>) -> Vec<(std::path::
 
                 let exe_path = std::env::current_exe().unwrap();
                 let exe_dir = exe_path.parent().unwrap();
-
                 let output = exe_dir.join(&name).with_extension("docx");
 
-                convert_doc_to_docx_windows(input, output.to_str().unwrap()).unwrap();
+                convert_doc_to_docx_windows(input, output.to_str().unwrap());
 
                 (output, name)
             } else {
@@ -31,43 +32,58 @@ pub fn convert_doc(files: Vec<(std::path::PathBuf, String)>) -> Vec<(std::path::
         .collect::<Vec<(std::path::PathBuf, String)>>()
 }
 
-#[cfg(windows)]
-fn convert_doc_to_docx_windows(input: &str, output: &str) -> windows::core::Result<()> {
-    use windows::{
-        core::*,
-        Win32::System::Com::{
-            CoCreateInstance, CoInitializeEx, CoUninitialize, IDispatch, CLSCTX_ALL,
-            COINIT_APARTMENTTHREADED,
-        },
-        Win32::System::Ole::CLSIDFromProgID,
-        Win32::System::Variant::VARIANT,
-    };
+fn convert_doc_to_docx_windows(input: &str, output: &str) -> () {
+    let ps_script = format!(
+        r#"
+        $word = New-Object -ComObject Word.Application
+        $word.Visible = $false
+        $doc = $word.Documents.Open("{}")
+        $doc.SaveAs2("{}", 12)
+        $doc.Close()
+        $word.Quit()
+        "#,
+        input.replace("\\", "\\\\"),
+        output.replace("\\", "\\\\")
+    );
 
-    unsafe {
-        CoInitializeEx(std::ptr::null_mut(), COINIT_APARTMENTTHREADED)?;
+    let temp_dir = std::env::temp_dir();
+    let temp_script_path = temp_dir.join("convert_doc.ps1");
+    let mut temp_file = File::create(&temp_script_path).unwrap();
+    // write BOM header
+    temp_file.write_all(&[0xEF, 0xBB, 0xBF]).unwrap();
+    // write rest of the script
+    temp_file.write_all(ps_script.as_bytes()).unwrap();
+    temp_file.flush().unwrap();
 
-        let word: IDispatch =
-            CoCreateInstance(&CLSIDFromProgID("Word.Application")?, None, CLSCTX_ALL)?;
+    // close file or powershell will complain
+    drop(temp_file);
 
-        let _ = word.SetProperty("Visible", VARIANT::from(false));
+    let file_path_str = temp_script_path.to_string_lossy().into_owned();
 
-        let documents = word.GetProperty("Documents")?.to_dispatch()?;
-        let doc = documents
-            .Invoke("Open", &[VARIANT::from(input)])?
-            .to_dispatch()?;
+    println!("->> converting file: {file_path_str}");
 
-        doc.Invoke("SaveAs", &[VARIANT::from(output), VARIANT::from(16)])?;
+    let output = Command::new("powershell")
+        .args(&[
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            &file_path_str,
+        ])
+        .output()
+        .unwrap();
 
-        let _ = doc.Invoke("Close", &[]);
-        let _ = word.Invoke("Quit", &[]);
+    match output.status.code() {
+        Some(0) => {
+            println!("->> converting file: {file_path_str} ...Ok");
+        }
+        _ => {
+            println!("->> converting file: {file_path_str} ...Fail");
 
-        CoUninitialize();
+            std::io::stdout().write_all(&output.stdout).unwrap();
+            std::io::stderr().write_all(&output.stderr).unwrap();
+        }
     }
 
-    Ok(())
-}
-
-#[cfg(not(windows))]
-fn convert_doc_to_docx_windows(_input: &str, _output: &str) -> Result<(), &'static str> {
-    Err("Word automation is only supported on Windows")
+    ()
 }

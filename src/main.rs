@@ -213,7 +213,11 @@ fn create_excel_table(data: &Vec<Vec<Vec<String>>>, out_file: &str) -> Result<()
 
     worksheet.merge_range(0, 4, 0, 6, "Количество", &format_default)?;
 
-    workbook.save(format!("{out_file}.xlsx"))?;
+    let exe_path = std::env::current_exe().unwrap();
+    let exe_dir = exe_path.parent().unwrap();
+    let output = exe_dir.join(&out_file).with_extension("xlsx");
+
+    workbook.save(output)?;
     Ok(())
 }
 
